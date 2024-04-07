@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"reids-by-go/interface/redis"
 	"strconv"
+	"time"
 )
 
 type StatusReply struct {
@@ -30,6 +31,18 @@ func MakeIntReply(value int64) redis.Reply {
 
 func (i *IntReply) ToBytes() []byte {
 	return []byte(":" + strconv.FormatInt(i.value, 10) + CRLF)
+}
+
+type FloatReply struct {
+	value float64
+}
+
+func MakeFloatReply(value float64) redis.Reply {
+	return &FloatReply{value: value}
+}
+
+func (f *FloatReply) ToBytes() []byte {
+	return []byte(":" + strconv.FormatFloat(f.value, 'g', -1, 64) + CRLF)
 }
 
 type BulkReply struct {
@@ -79,4 +92,16 @@ func (m *MultiBulkStringReply) ToBytes() []byte {
 		}
 	}
 	return buf.Bytes()
+}
+
+type TimeReply struct {
+	Time time.Time
+}
+
+func MakeTimeReply(time time.Time) redis.Reply {
+	return &TimeReply{Time: time}
+}
+
+func (t *TimeReply) ToBytes() []byte {
+	return []byte("+" + t.Time.String() + CRLF)
 }

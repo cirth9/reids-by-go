@@ -7,23 +7,39 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"reids-by-go/cluster"
 	"reids-by-go/interface/tcp"
 	"sync"
 	"syscall"
 	"time"
 )
 
+type DiscoveryConfig struct {
+	EtcdAddress []string `yaml:"etcd-address"`
+	DialTimeOut int      `yaml:"dial-time-out"`
+	TTL         int64    `yaml:"ttl"`
+}
+
 type Config struct {
-	Address    string        `yaml:"address"`
-	MaxConnect uint32        `yaml:"max-connect"`
-	Timeout    time.Duration `yaml:"timeout"`
+	MaxConnect       uint32        `yaml:"max-connect"`
+	Timeout          time.Duration `yaml:"timeout"`
+	*cluster.Server  `yaml:"srv-info"`
+	*DiscoveryConfig `yaml:"discovery-config"`
 }
 
 // ListenAndServer   监听并且提供服务，收到close chan后关闭
-func ListenAndServer(listener net.Listener, handler tcp.Handler, closeChan chan struct{}) {
+func ListenAndServer(listener net.Listener, handler tcp.Handler, closeChan chan struct{}, register *cluster.Registry) {
 	go func() {
 		<-closeChan
 		log.Println("shut down...")
+		if register != nil {
+			err := register.UnRegistry()
+			if err != nil {
+				panic(err)
+			}
+			log.Println("unRegistry...")
+			register.Close()
+		}
 		_ = listener.Close()
 		_ = handler.Close()
 	}()
@@ -62,11 +78,22 @@ func ListenAndServerWithSignal(cfg *Config, handler tcp.Handler) error {
 			closeChan <- struct{}{}
 		}
 	}()
-	listener, err := net.Listen("tcp", cfg.Address)
+	listener, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		return err
 	}
-	log.Println(fmt.Sprintf("bind: %s,start listening...", cfg.Address))
-	ListenAndServer(listener, handler, closeChan)
+
+	var register *cluster.Registry = nil
+	if cfg.DiscoveryConfig != nil {
+		var err1 error
+		register = cluster.NewRegister(cfg.EtcdAddress, cfg.DialTimeOut)
+		_, err1 = register.Register(cfg.Server, cfg.TTL)
+		if err1 != nil {
+			log.Println("discovery error ", err1.Error())
+			return err1
+		}
+	}
+	log.Println(fmt.Sprintf("bind: %s,start listening...", cfg.Addr))
+	ListenAndServer(listener, handler, closeChan, register)
 	return nil
 }

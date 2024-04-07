@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"reids-by-go/cluster"
 	"reids-by-go/interface/redis"
 	"reids-by-go/lib/sync/wait"
 	"reids-by-go/redis/parse"
@@ -26,43 +27,74 @@ type Request struct {
 	err       error
 }
 
+type Config struct {
+	EtcdAddr    []string
+	DialTimeOut int
+}
+
 type Client struct {
-	conn            net.Conn
+	singleConn      net.Conn
 	pendingRequests chan *Request
 	waitingRequests chan *Request
 	ticker          *time.Ticker
 	addr            string
+	discovery       *cluster.Discovery
+	isCluster       bool
 
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	working    *sync.WaitGroup
 }
 
-func MakeClient(addr string) (*Client, error) {
+func MakeSingleClient(addr string) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Client{
+	client := &Client{
 		addr:            addr,
-		conn:            conn,
+		singleConn:      conn,
 		pendingRequests: make(chan *Request, chanSize),
 		waitingRequests: make(chan *Request, chanSize),
 		ctx:             ctx,
 		cancelFunc:      cancel,
+		isCluster:       false,
 		working:         &sync.WaitGroup{},
-	}, nil
+	}
+	return client, nil
+}
+
+func MakeClusterClient(config *Config) (*Client, error) {
+	discovery, err := cluster.NewDiscovery(config.EtcdAddr, config.DialTimeOut)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	client := &Client{
+		pendingRequests: make(chan *Request, chanSize),
+		waitingRequests: make(chan *Request, chanSize),
+		discovery:       discovery,
+		ctx:             ctx,
+		cancelFunc:      cancel,
+		isCluster:       true,
+		working:         &sync.WaitGroup{},
+	}
+	return client, nil
 }
 
 func (client *Client) Start() {
 	client.ticker = time.NewTicker(10 * time.Second)
 	go client.handleWrite()
-	go func() {
-		err := client.handleRead()
-		log.Print(err)
-	}()
-	go client.heartbeat()
+	if client.isCluster {
+
+	} else {
+		go func() {
+			err := client.handleSingleRead()
+			log.Print(err)
+		}()
+		go client.heartbeat()
+	}
 }
 
 func (client *Client) Send(args [][]byte) redis.Reply {
@@ -102,12 +134,45 @@ func (client *Client) doRequest(request *Request) {
 	reply := protocol.MakeMultiBulkReply(request.args)
 	bytes := reply.ToBytes()
 	//log.Println(string(bytes))
-	_, err := client.conn.Write(bytes)
+	if client.isCluster {
+		client.doRequestByCluster(request, bytes)
+	} else {
+		client.doRequestBySingle(request, bytes)
+	}
+}
+
+func (client *Client) doRequestBySingle(request *Request, bytes []byte) {
+	_, err := client.singleConn.Write(bytes)
 	i := 0
 	for err != nil && i < 3 {
 		err = client.handleConnError(err)
 		if err == nil {
-			_, err = client.conn.Write(bytes)
+			_, err = client.singleConn.Write(bytes)
+		}
+		i++
+	}
+	if err == nil {
+		client.waitingRequests <- request
+	} else {
+		request.err = err
+		request.waiting.Done()
+	}
+}
+
+// todo 集群请求，对于所有的命令来讲第二个参数都是key，通过key可以确定唯一一个conn，并且进行操作
+func (client *Client) doRequestByCluster(request *Request, bytes []byte) {
+	//todo mset mget 等分散到多节点的多key命令
+	singleCmds := cluster.MultipleToSingleCmd(request.args)
+
+	key := string(request.args[1])
+	get := client.discovery.ConsistentHash.Get(key)
+	conn := client.discovery.ConnMap[get]
+	_, err := conn.Write(bytes)
+	i := 0
+	for err != nil && i < 3 {
+		err = client.handleConnError(err)
+		if err == nil {
+			_, err = conn.Write(bytes)
 		}
 		i++
 	}
@@ -122,7 +187,7 @@ func (client *Client) doRequest(request *Request) {
 func (client *Client) finishRequest(reply redis.Reply) {
 	defer func() {
 		if err := recover(); err != nil {
-
+			log.Println(err)
 		}
 	}()
 
@@ -139,8 +204,8 @@ func (client *Client) finishRequest(reply redis.Reply) {
 	}
 }
 
-func (client *Client) handleRead() error {
-	ch := parse.ParseStream(client.conn)
+func (client *Client) handleSingleRead() error {
+	ch := parse.ParseStream(client.singleConn)
 	for payload := range ch {
 		if payload.Err != nil {
 			client.finishRequest(protocol.MakeErrReply(payload.Err.Error()))

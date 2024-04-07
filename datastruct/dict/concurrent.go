@@ -94,6 +94,28 @@ func (dict *ConcurrentDict) Put(key string, val any) (result int) {
 	if _, ok := shard.m[key]; ok {
 		//have existed
 		shard.m[key] = val
+		return 1
+	} else {
+		//do not exist
+		shard.m[key] = val
+		//log.Println("put >>> ", key, shard.m[key])
+		dict.addCount()
+		return 1
+	}
+	return 0
+}
+
+func (dict *ConcurrentDict) PutIfNX(key string, val any) (result int) {
+	if dict == nil {
+		panic("dict is nil!")
+	}
+	hashCode := hashFnv64(key)
+	index := dict.spread(hashCode)
+	shard := dict.table[index]
+	shard.mutex.Lock()
+	defer shard.mutex.Unlock()
+
+	if _, ok := shard.m[key]; ok {
 		return 0
 	} else {
 		//do not exist
@@ -152,4 +174,29 @@ func hashFnv64(key string) uint64 {
 	}
 	hashValue := hash64.Sum64()
 	return hashValue
+}
+
+type Consumer func(key string, val any) bool
+
+func (dict *ConcurrentDict) ForEach(consumer Consumer) {
+	if dict == nil {
+		panic("dict is nil")
+	}
+
+	for _, s := range dict.table {
+		s.mutex.RLock()
+		f := func() bool {
+			defer s.mutex.RUnlock()
+			for key, value := range s.m {
+				continues := consumer(key, value)
+				if !continues {
+					return false
+				}
+			}
+			return true
+		}
+		if !f() {
+			break
+		}
+	}
 }

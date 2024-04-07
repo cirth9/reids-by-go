@@ -1,0 +1,7 @@
+persist:
+  aof:
+    aof_file: "/home/cirth9/go_file/reids-by-go/persistence_file/redis.aof"
+    temp_dir: "/home/cirth9/go_file/reids-by-go/persistence_file"
+    aof_rewrite_time: 10 #seconds
+  rdb:
+    rdb_file: ""
