@@ -169,3 +169,31 @@ func (db *DB) persist(key string) (redis.Reply, *Extra) {
 	}
 	return protocol.MakeStatusReply("NO SUCH EXPIRE KEY"), nil
 }
+
+func expireRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	//expire key secondsUnix
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("persist"))
+	rollback = append(rollback, cmdLine[1])
+	return rollback
+}
+
+func pExpireRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	//expire key secondsUnix
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("persist"))
+	rollback = append(rollback, cmdLine[1])
+	return rollback
+}
+
+func persistRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("pexpire"))
+	val, exists := db.ttlMap.Get(string(cmdLine[1]))
+	if !exists {
+		return nil
+	}
+	rollback = append(rollback, cmdLine[1])
+	rollback = append(rollback, []byte(strconv.FormatInt(val.(int64), 10)))
+	return rollback
+}

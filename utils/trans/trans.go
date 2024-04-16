@@ -2,6 +2,7 @@ package trans
 
 import (
 	"bytes"
+	"log"
 	"reflect"
 	"strconv"
 )
@@ -43,7 +44,7 @@ func AnyToString(a any) string {
 	case float32, float64:
 		result = strconv.FormatFloat(a.(float64), 'g', -1, 64)
 	case string:
-		return result
+		result = a.(string)
 	}
 	return result
 }
@@ -51,11 +52,16 @@ func AnyToString(a any) string {
 func AnysToBytes(anys []any) [][]byte {
 	result := make([][]byte, 0)
 	for _, a := range anys {
-		if i, ok := a.([]byte); ok {
-			result = append(result, i)
-		} else {
-			return [][]byte{}
-		}
+		log.Println(AnyToString(a))
+		result = append(result, AnyToBytes(a))
+	}
+	return result
+}
+
+func AnysToStrings(anys []any) []string {
+	result := make([]string, 0)
+	for _, a := range anys {
+		result = append(result, AnyToString(a))
 	}
 	return result
 }

@@ -9,3 +9,9 @@ type AOF struct {
 	TmpFile        string
 	AofRewriteTime int64
 }
+
+type Etcd struct {
+	DialTimeOut int
+	Ttl         int64
+	Addresses   []string
+}

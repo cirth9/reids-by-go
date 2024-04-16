@@ -69,7 +69,6 @@ func (db *DB) loadAof(maxBytes int64) {
 			log.Println("empty payload")
 			continue
 		}
-		log.Println("load Aof:", string(p.Data.ToBytes()))
 		r, ok := p.Data.(*protocol.MultiBulkStringReply)
 		if !ok {
 			log.Println("require multi bulk reply")

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"log"
 	"reids-by-go/interface/redis"
 	"reids-by-go/redis/protocol"
 	"reids-by-go/utils/trans"
@@ -25,14 +26,14 @@ func mSetByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
 	if len(cmdStrings) < 3 || (len(cmdStrings)-1)%2 != 0 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return nil, nil
+	return db.MSet(cmdStrings)
 }
 
 func mGetByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
 	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return nil, nil
+	return db.MGet(cmdStrings)
 }
 
 func deleteByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
@@ -120,9 +121,29 @@ func (db *DB) MGet(cmdStrings []string) (redis.Reply, *Extra) {
 			unExistKey.WriteString(" ")
 		}
 	}
+	log.Println(result)
 	if len(result) == len(cmdStrings)-1 {
 		return protocol.MakeMultiBulkReply(trans.AnysToBytes(result)), nil
 	} else {
-		return protocol.MakeStatusReply("FAILED! SOME KEY IS NOT EXIST! KEYS:" + unExistKey.String()), nil
+		return protocol.MakeStatusReply("FAILED! SOME KEY IS NOT EXIST! KEYS:" + unExistKey.String() + " FIND: " + strings.Join(trans.AnysToStrings(result), "")), nil
 	}
+}
+
+func deleteRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte(set))
+	val, exists := db.data.Get(string(cmdLine[1]))
+	if exists {
+		rollback = append(rollback, trans.AnyToBytes(val))
+	} else {
+		return nil
+	}
+	return rollback
+}
+
+func setRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte(deleteKey))
+	rollback = append(rollback, cmdLine[1])
+	return rollback
 }

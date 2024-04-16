@@ -1,9 +1,11 @@
 package client
 
 import (
+	"fmt"
 	"log"
 	"reids-by-go/interface/redis"
 	"reids-by-go/redis/protocol"
+	"strings"
 	"testing"
 )
 
@@ -112,5 +114,12 @@ func TestZset(t *testing.T) {
 		}
 	} else {
 		t.Error("zrange assert")
+	}
+}
+
+func TestSplit(t *testing.T) {
+	test := "a  b   123"
+	for _, s := range strings.Split(test, " ") {
+		fmt.Println(s)
 	}
 }

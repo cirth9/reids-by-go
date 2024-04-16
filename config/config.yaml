@@ -1,7 +1,16 @@
 persist:
   aof:
-    aof_file: "/home/cirth9/go_file/reids-by-go/persistence_file/redis.aof"
-    temp_dir: "/home/cirth9/go_file/reids-by-go/persistence_file"
+    aof_file: "/home/cirth9/go_file/r/reids-by-go/persistence_file/redis.aof"
+    temp_dir: "/home/cirth9/go_file/r/reids-by-go/persistence_file"
     aof_rewrite_time: 10 #seconds
   rdb:
     rdb_file: ""
+
+# if is cluster mode,must have etcd service
+etcd:
+  dial_time_out: 10000
+  ttl: 10000
+  etcd_addresses: [ "127.0.0.1:2379" ]
+
+
+is_dev: true

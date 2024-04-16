@@ -40,20 +40,20 @@ const (
 
 // Hash
 const (
-	hSet         = "hset"
-	hGet         = "hget"
-	hDel         = "hdel"
-	hExists      = "hexists"
-	hGetAll      = "hgetall"
-	hIncrBy      = "hincrby"
-	hIncrByFloat = "hincrbyfloat"
-	hKeys        = "hkeys"
-	hLen         = "hlen"
-	hMSet        = "hmset"
-	hMGet        = "hmget"
-	hSetNx       = "hsetnx"
-	hVals        = "hvals"
-	hScan        = "hscan"
+	hSet        = "hset"
+	hGet        = "hget"
+	hDel        = "hdel"
+	hExists     = "hexists"
+	hGetAll     = "hgetall"
+	hIncBy      = "hincrby"
+	hIncByFloat = "hincrbyfloat"
+	hKeys       = "hkeys"
+	hLen        = "hlen"
+	hMSet       = "hmset"
+	hMGet       = "hmget"
+	hSetNx      = "hsetnx"
+	hVals       = "hvals"
+	hScan       = "hscan"
 )
 
 // redis_list
@@ -90,12 +90,14 @@ const (
 	sRandMember  = "srandmember"
 )
 
+type CmdHandlerByDb func(cmdStrings []string, db *DB) (redis.Reply, *Extra)
+
 type command struct {
 	cmd     string
-	handler func(cmdStrings []string, db *DB) (redis.Reply, *Extra)
+	handler CmdHandlerByDb
 }
 
-func makeCommand(cmd string, handler func(cmdStrings []string, db *DB) (redis.Reply, *Extra)) *command {
+func makeCommand(cmd string, handler CmdHandlerByDb) *command {
 	return &command{
 		cmd:     cmd,
 		handler: handler,
@@ -103,6 +105,8 @@ func makeCommand(cmd string, handler func(cmdStrings []string, db *DB) (redis.Re
 }
 
 var cmdMap = initCmdMap()
+var CmdIsWriteMap = initCmdIsWriteMap()
+var CmdUnDoMap = initCmdUnDoMap()
 
 func initCmdMap() map[string]*command {
 	cmd := make(map[string]*command)
@@ -154,7 +158,6 @@ func initCmdMap() map[string]*command {
 	cmd[sIsMember] = makeCommand(sIsMember, sisMemberByDb)
 	cmd[sCard] = makeCommand(sCard, sCardByDb)
 	cmd[sMembers] = makeCommand(sMembers, sMembersByDb)
-	cmd[sRangeMember] = makeCommand(sRangeMember, sRangeMemberByDb)
 	cmd[sPop] = makeCommand(sPop, sPopByDb)
 	cmd[sInter] = makeCommand(sInter, sInterByDb)
 	cmd[sUnion] = makeCommand(sUnion, sUnionByDb)
@@ -171,8 +174,8 @@ func initCmdMap() map[string]*command {
 	cmd[hDel] = makeCommand(hDel, hDelByDb)
 	cmd[hExists] = makeCommand(hExists, hExistsByDb)
 	cmd[hGetAll] = makeCommand(hGetAll, hGetAllByDb)
-	cmd[hIncrBy] = makeCommand(hIncrBy, hIncByByDb)
-	cmd[hIncrByFloat] = makeCommand(hIncrByFloat, hIncByFloatByDb)
+	cmd[hIncBy] = makeCommand(hIncBy, hIncByByDb)
+	cmd[hIncByFloat] = makeCommand(hIncByFloat, hIncByFloatByDb)
 	cmd[hKeys] = makeCommand(hKeys, hKeysByDb)
 	cmd[hLen] = makeCommand(hLen, hLenByDb)
 	cmd[hMSet] = makeCommand(hMSet, hMSetByDb)
@@ -180,5 +183,130 @@ func initCmdMap() map[string]*command {
 	cmd[hSetNx] = makeCommand(hSetNx, hSetNxByDb)
 	cmd[hVals] = makeCommand(hVals, hValsByDb)
 	cmd[hScan] = makeCommand(hScan, hScanByDb)
+	return cmd
+}
+
+func initCmdIsWriteMap() map[string]bool {
+	cmd := make(map[string]bool)
+
+	//todo common
+	cmd[get] = false
+	cmd[deleteKey] = true
+	cmd[set] = true
+	cmd[ping] = false
+	cmd[mSet] = true
+	cmd[mGet] = false
+
+	//todo zSet
+	cmd[zAdd] = true
+	cmd[zRem] = true
+	cmd[zRange] = false //
+	cmd[zRangeByLex] = false
+	cmd[zRank] = false
+	cmd[zScore] = false
+	cmd[zCount] = false
+	cmd[zIncBy] = true
+	cmd[zCard] = false
+
+	//todo expire
+	cmd[expire] = true
+	cmd[pExpire] = true
+	cmd[expireAt] = false
+	cmd[pExpireAt] = false
+	cmd[ttl] = false
+	cmd[pTTL] = false
+	cmd[persist] = true
+
+	//todo redis_list
+	cmd[lPush] = true
+	cmd[rPush] = true
+	cmd[lPop] = true
+	cmd[rPop] = true
+	cmd[lIndex] = false
+	cmd[lLen] = false
+	cmd[lRange] = false
+	cmd[lInsert] = true
+	cmd[lSet] = true
+	cmd[lRem] = true
+	cmd[lTrim] = true
+
+	//todo set
+	cmd[sAdd] = true
+	cmd[sRem] = true
+	cmd[sIsMember] = false
+	cmd[sCard] = false
+	cmd[sMembers] = false
+	cmd[sRangeMember] = false
+	cmd[sPop] = true
+	cmd[sInter] = false
+	cmd[sUnion] = false
+	cmd[sDiff] = false
+	cmd[sInterStore] = false
+	cmd[sUnionStore] = false
+	cmd[sDiffStore] = false
+	cmd[sMove] = true
+	cmd[sRandMember] = false
+
+	//todo hash
+	cmd[hSet] = true
+	cmd[hGet] = false
+	cmd[hDel] = true
+	cmd[hExists] = false
+	cmd[hGetAll] = false
+	cmd[hIncBy] = true
+	cmd[hIncByFloat] = true
+	cmd[hKeys] = false
+	cmd[hLen] = true
+	cmd[hMSet] = true
+	cmd[hMGet] = false
+	cmd[hSetNx] = true
+	cmd[hVals] = false
+	cmd[hScan] = false
+	return cmd
+}
+
+type GetRollBackCmd func(cmdLine CmdLine, db *DB) CmdLine
+
+func initCmdUnDoMap() map[string]GetRollBackCmd {
+	cmd := make(map[string]GetRollBackCmd)
+	//todo common
+	cmd[deleteKey] = deleteRollBack
+	cmd[set] = setRollBack
+	cmd[mSet] = nil
+
+	//todo zSet
+	cmd[zAdd] = zAddRollBack
+	cmd[zRem] = zRemRollBack
+	cmd[zIncBy] = zIncByRollBack
+
+	//todo expire
+	cmd[expire] = expireRollBack
+	cmd[pExpire] = pExpireRollBack
+	cmd[persist] = persistRollBack
+
+	//todo redis_list
+	cmd[lPush] = lPushRollBack
+	cmd[rPush] = rPushRollBack
+	cmd[lPop] = lPopRollBack
+	cmd[rPop] = rPopRollBack
+	cmd[lInsert] = lInsertRollBack
+	cmd[lSet] = lSetRollBack
+	cmd[lRem] = lRemRollBack
+	cmd[lTrim] = lTrimRollBack
+
+	//todo set
+	cmd[sAdd] = sAddRollBack
+	cmd[sRem] = sRemRollBack
+	cmd[sPop] = sPopRollBack
+	cmd[sMove] = sMoveRollBack
+
+	//todo hash
+	cmd[hSet] = hSetRollBack
+	cmd[hDel] = hDelRollBack
+	cmd[hIncBy] = hIncByRollBack
+	cmd[hIncByFloat] = hIncByFloatRollBack
+	cmd[hMSet] = hMSetRollBack
+	cmd[hSetNx] = hSetNxRollBack
+
 	return cmd
 }

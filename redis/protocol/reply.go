@@ -22,27 +22,27 @@ func (s *StatusReply) ToBytes() []byte {
 }
 
 type IntReply struct {
-	value int64
+	Value int64
 }
 
 func MakeIntReply(value int64) redis.Reply {
-	return &IntReply{value: value}
+	return &IntReply{Value: value}
 }
 
 func (i *IntReply) ToBytes() []byte {
-	return []byte(":" + strconv.FormatInt(i.value, 10) + CRLF)
+	return []byte(":" + strconv.FormatInt(i.Value, 10) + CRLF)
 }
 
 type FloatReply struct {
-	value float64
+	Value float64
 }
 
 func MakeFloatReply(value float64) redis.Reply {
-	return &FloatReply{value: value}
+	return &FloatReply{Value: value}
 }
 
 func (f *FloatReply) ToBytes() []byte {
-	return []byte(":" + strconv.FormatFloat(f.value, 'g', -1, 64) + CRLF)
+	return []byte(":" + strconv.FormatFloat(f.Value, 'g', -1, 64) + CRLF)
 }
 
 type BulkReply struct {

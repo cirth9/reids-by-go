@@ -51,7 +51,7 @@ type Extra struct {
 	specialAof []*protocol.MultiBulkStringReply
 }
 
-type CmdLine = [][]byte
+type CmdLine [][]byte
 
 func NewDatabase() *DB {
 	var err error
@@ -67,7 +67,7 @@ func NewDatabase() *DB {
 	}
 	db.aofFile, err = os.OpenFile(config.PersistConfig.AofFile, os.O_APPEND|os.O_RDWR, 7777)
 	if err != nil {
-		panic("aof file get error!")
+		panic("aof file get error!" + err.Error())
 	}
 	db.aofFilename = db.aofFile.Name()
 	log.Println("AOF FileName:", db.aofFile.Name())
@@ -77,14 +77,24 @@ func NewDatabase() *DB {
 	return db
 }
 
+func (db *DB) RWUnLock(writeKeys []string, readKeys []string) {
+	db.data.RWLocks(writeKeys, readKeys)
+}
+
+func (db *DB) RWLock(writeKeys []string, readKeys []string) {
+	db.data.RWUnLocks(writeKeys, readKeys)
+}
+
 // Exec  todo 解析redis命令
 func (db *DB) Exec(cmd CmdLine) redis.Reply {
 	cmdStrings := trans.BytesToStrings(cmd)
 	//var extra *Extra
 	cmdHeader := strings.ToLower(cmdStrings[0])
-	c := cmdMap[cmdHeader]
+	c, ok := cmdMap[cmdHeader]
+	if !ok {
+		return protocol.MakeErrReply("NO SUCH COMMAND")
+	}
 	reply, extra := c.handler(cmdStrings, db)
-
 	if extra != nil && extra.toPersist {
 		go func() {
 			for _, stringReply := range extra.specialAof {
@@ -107,6 +117,16 @@ func (db *DB) ForEach(h func(key string, data any, expiration *time.Time) bool) 
 		}
 		return h(key, val, expiration)
 	})
+}
+
+func (db *DB) GetUndoLogs(lines []CmdLine) []CmdLine {
+	undoLog := make([]CmdLine, 0)
+	for i := 0; i < len(lines); i++ {
+		undoCmdFunc := CmdUnDoMap[string(lines[i][0])]
+		undoCmd := undoCmdFunc(lines[i], db)
+		undoLog = append(undoLog, undoCmd)
+	}
+	return undoLog
 }
 
 func (db *DB) CheckExpire() {

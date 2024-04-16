@@ -4,6 +4,7 @@ import (
 	"hash/fnv"
 	"log"
 	"math"
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -16,6 +17,65 @@ type ConcurrentDict struct {
 type Shard struct {
 	m     map[string]any
 	mutex sync.RWMutex
+}
+
+// RWLocks locks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, false)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wKey := range writeKeys {
+		idx := dict.spread(hashFnv64(wKey))
+		writeIndexSet[uint32(idx)] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Lock()
+		} else {
+			mu.RLock()
+		}
+	}
+}
+
+// RWUnLocks unlocks write keys and read keys together. allow duplicate keys
+func (dict *ConcurrentDict) RWUnLocks(writeKeys []string, readKeys []string) {
+	keys := append(writeKeys, readKeys...)
+	indices := dict.toLockIndices(keys, true)
+	writeIndexSet := make(map[uint32]struct{})
+	for _, wKey := range writeKeys {
+		idx := dict.spread(hashFnv64(wKey))
+		writeIndexSet[uint32(idx)] = struct{}{}
+	}
+	for _, index := range indices {
+		_, w := writeIndexSet[index]
+		mu := &dict.table[index].mutex
+		if w {
+			mu.Unlock()
+		} else {
+			mu.RUnlock()
+		}
+	}
+}
+
+func (dict *ConcurrentDict) toLockIndices(keys []string, reverse bool) []uint32 {
+	indexMap := make(map[uint32]struct{})
+	for _, key := range keys {
+		index := dict.spread(hashFnv64(key))
+		indexMap[uint32(index)] = struct{}{}
+	}
+	indices := make([]uint32, 0, len(indexMap))
+	for index := range indexMap {
+		indices = append(indices, index)
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		if !reverse {
+			return indices[i] < indices[j]
+		}
+		return indices[i] > indices[j]
+	})
+	return indices
 }
 
 // todo 控制hashCode映射到table切片的范围内

@@ -5,6 +5,7 @@ import (
 	"reids-by-go/datastruct/sorted_set"
 	"reids-by-go/interface/redis"
 	"reids-by-go/redis/protocol"
+	"reids-by-go/utils/trans"
 	"strconv"
 	"strings"
 )
@@ -319,4 +320,51 @@ func (db *DB) zcard(key string) (redis.Reply, *Extra) {
 		return protocol.MakeIntReply(count), nil
 	}
 	return protocol.MakeIntReply(-1), nil
+}
+
+func zAddRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	//zrem key  member1 member2 ..
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("zrem"))
+	rollback = append(rollback, cmdLine[1])
+	for i := 2; i < len(cmdLine); i += 2 {
+		rollback = append(rollback, cmdLine[i+1])
+	}
+	return rollback
+}
+
+func zRemRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	//zadd key score1 member1 score2 member2
+	val, exists := db.data.Get(string(cmdLine[1]))
+	if !exists {
+		return nil
+	}
+	zset, ok := val.(*sorted_set.SortedSet)
+	if !ok {
+		return nil
+	}
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("zadd"))
+	rollback = append(rollback, cmdLine[1])
+	for i := 2; i < len(cmdLine); i++ {
+		if element, b := zset.Get(string(cmdLine[i])); b {
+			rollback = append(rollback, trans.AnyToBytes(element.Score))
+			rollback = append(rollback, trans.AnyToBytes(element.Member))
+		}
+	}
+	return rollback
+}
+
+func zIncByRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	//ZINCRBY key increment member
+	inc, err := strconv.ParseFloat(string(cmdLine[2]), 64)
+	if err != nil {
+		return nil
+	}
+	rollback := make(CmdLine, 0)
+	rollback = append(rollback, []byte("zincby"))
+	rollback = append(rollback, cmdLine[1])
+	rollback = append(rollback, []byte(strconv.FormatFloat(-inc, 'g', -1, 64)))
+	rollback = append(rollback, cmdLine[3])
+	return rollback
 }

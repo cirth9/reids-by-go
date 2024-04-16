@@ -334,3 +334,38 @@ func (db *DB) HScan(key string, cursor int, match string, count int) (redis.Repl
 	}
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
+
+func hSetRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hDelRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hInc(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hIncByRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hIncByFloatRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hMSetRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}
+
+func hSetNxRollBack(cmdLine CmdLine, db *DB) CmdLine {
+	rollback := make(CmdLine, 0)
+	return rollback
+}

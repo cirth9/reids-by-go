@@ -114,7 +114,7 @@ func (list *List) Trim(start, end int) bool {
 	if end > list.Len()-1 {
 		end = list.Len() - 1
 	}
-
+	length := list.Len()
 	if start < 0 {
 		return false
 	}
@@ -125,7 +125,7 @@ func (list *List) Trim(start, end int) bool {
 	for i := 0; i < start; i++ {
 		list.LeftPop()
 	}
-	for i := 0; i < list.Len()-end; i++ {
+	for i := 0; i < length-end-1; i++ {
 		list.RightPop()
 	}
 	return true
@@ -156,4 +156,15 @@ func (list *List) Remove(val any) bool {
 		nowNode = nowNode.Next()
 	}
 	return false
+}
+
+func (list *List) GetValue(index int) any {
+	if index < 0 && index > list.Len()-1 {
+		return false
+	}
+	nowNode := list.l.Front()
+	for i := 0; i < index; i++ {
+		nowNode = nowNode.Next()
+	}
+	return nowNode.Value
 }

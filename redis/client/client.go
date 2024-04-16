@@ -66,7 +66,7 @@ func MakeSingleClient(addr string) (*Client, error) {
 }
 
 func MakeClusterClient(config *Config) (*Client, error) {
-	discovery, err := cluster.NewDiscovery(config.EtcdAddr, config.DialTimeOut)
+	discovery, err := cluster.NewDiscovery("client", config.EtcdAddr, config.DialTimeOut)
 	if err != nil {
 		return nil, err
 	}
@@ -86,15 +86,11 @@ func MakeClusterClient(config *Config) (*Client, error) {
 func (client *Client) Start() {
 	client.ticker = time.NewTicker(10 * time.Second)
 	go client.handleWrite()
-	if client.isCluster {
-
-	} else {
-		go func() {
-			err := client.handleSingleRead()
-			log.Print(err)
-		}()
-		go client.heartbeat()
-	}
+	go func() {
+		err := client.handleRead()
+		log.Print(err)
+	}()
+	go client.heartbeat()
 }
 
 func (client *Client) Send(args [][]byte) redis.Reply {
@@ -103,8 +99,6 @@ func (client *Client) Send(args [][]byte) redis.Reply {
 		heartBeat: false,
 		waiting:   &wait.Wait{},
 	}
-
-	//log.Println("send args:", utils.BytesToStrings(request.args))
 
 	request.waiting.Add(1)
 	client.working.Add(1)
@@ -161,9 +155,6 @@ func (client *Client) doRequestBySingle(request *Request, bytes []byte) {
 
 // todo 集群请求，对于所有的命令来讲第二个参数都是key，通过key可以确定唯一一个conn，并且进行操作
 func (client *Client) doRequestByCluster(request *Request, bytes []byte) {
-	//todo mset mget 等分散到多节点的多key命令
-	singleCmds := cluster.MultipleToSingleCmd(request.args)
-
 	key := string(request.args[1])
 	get := client.discovery.ConsistentHash.Get(key)
 	conn := client.discovery.ConnMap[get]
@@ -204,7 +195,7 @@ func (client *Client) finishRequest(reply redis.Reply) {
 	}
 }
 
-func (client *Client) handleSingleRead() error {
+func (client *Client) handleRead() error {
 	ch := parse.ParseStream(client.singleConn)
 	for payload := range ch {
 		if payload.Err != nil {

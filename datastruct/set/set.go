@@ -1,15 +1,12 @@
 package set
 
-import "reids-by-go/datastruct/dict"
-
-type intSet struct {
-	elements []int
-}
+import (
+	"reids-by-go/datastruct/dict"
+	"reids-by-go/utils/trans"
+)
 
 type Set struct {
-	d        *dict.ConcurrentDict
-	i        *intSet
-	isIntSet bool
+	d *dict.ConcurrentDict
 }
 
 /*
@@ -30,62 +27,68 @@ type Set struct {
 	SRANDMEMBER key [count]: 随机返回集合中的一个或多个成员，可重复。
 */
 
-func (s *Set) Add(member []any) {
-
+func (s *Set) Add(member ...any) int {
+	cnt := 0
+	for _, a := range member {
+		s.d.Put(trans.AnyToString(a), nil)
+		cnt++
+	}
+	return cnt
 }
 
-func (s *Set) Remove() {
-
+func (s *Set) Remove(member ...any) int {
+	cnt := 0
+	for _, a := range member {
+		if s.d.Delete(trans.AnyToString(a)) == 1 {
+			cnt++
+		}
+	}
+	return cnt
 }
 
-func (s *Set) IsMember() {
-
+func (s *Set) IsMember(member any) bool {
+	_, exists := s.d.Get(trans.AnyToString(member))
+	return exists
 }
 
-func (s *Set) Card() {
-
+func (s *Set) Card() int {
+	return s.d.Len()
 }
 
-func (s *Set) Members() {
-
+func (s *Set) Members() []string {
+	result := make([]string, 0)
+	s.d.ForEach(func(key string, val any) bool {
+		result = append(result, key)
+		return true
+	})
+	return result
 }
 
-func (s *Set) RangeMember() {
-
+func (s *Set) RandMember(count int) []string {
+	result := make([]string, 0)
+	cnt := 0
+	s.d.ForEach(func(key string, val any) bool {
+		result = append(result, key)
+		cnt++
+		if cnt == count {
+			return false
+		}
+		return true
+	})
+	return result
 }
 
-func (s *Set) Pop() {
+func (s *Set) Pop(count int) int {
+	cnt := 0
+	s.d.ForEach(func(key string, val any) bool {
+		if s.d.Delete(key) == 1 {
+			cnt++
+		}
 
-}
-
-func (s *Set) Inter() {
-
-}
-
-func (s *Set) Union() {
-
-}
-
-func (s *Set) Diff() {
-
-}
-
-func (s *Set) InterStore() {
-
-}
-
-func (s *Set) UnionStore() {
-
-}
-
-func (s *Set) DiffStore() {
-
-}
-
-func (s *Set) Move() {
-
-}
-
-func (s *Set) RandMember() {
-
+		if cnt == count {
+			return false
+		}
+		return true
+	})
+	return cnt
 }

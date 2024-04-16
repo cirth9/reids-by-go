@@ -15,6 +15,7 @@ const (
 )
 
 type Discovery struct {
+	self           string
 	EtcdAddress    []string
 	SrvInfos       map[string]*Server
 	ConnMap        map[string]net.Conn
@@ -27,9 +28,10 @@ type Discovery struct {
 	keyPrefix string
 }
 
-func NewDiscovery(etcdAddr []string, TimeOut int) (*Discovery, error) {
+func NewDiscovery(self string, etcdAddr []string, TimeOut int) (*Discovery, error) {
 	var err error
 	dis := &Discovery{
+		self:           self,
 		EtcdAddress:    etcdAddr,
 		DialTimeout:    TimeOut,
 		closeCh:        make(chan struct{}),
@@ -49,17 +51,22 @@ func NewDiscovery(etcdAddr []string, TimeOut int) (*Discovery, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, kv := range response.Kvs {
 		var srvInfo Server
 		_ = json.Unmarshal(kv.Value, &srvInfo)
 		log.Println(string(kv.Key), string(kv.Value))
 		dis.SrvInfos[string(kv.Key)] = &srvInfo
 		dis.ConsistentHash.Add(string(kv.Key))
-		conn, err1 := net.Dial("tcp", srvInfo.Addr)
-		if err1 != nil {
-			return nil, err1
+		if string(kv.Key) != self {
+			conn, err1 := net.Dial("tcp", srvInfo.Addr)
+			if err1 != nil {
+				return nil, err1
+			}
+			dis.ConnMap[string(kv.Key)] = conn
+		} else {
+			dis.ConnMap[string(kv.Key)] = nil
 		}
-		dis.ConnMap[string(kv.Key)] = conn
 	}
 	dis.watchCh = dis.cli.Watch(context.Background(), serverPrefixKey, clientv3.WithPrefix())
 	return dis, nil

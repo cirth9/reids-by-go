@@ -27,6 +27,8 @@ type Config struct {
 	*DiscoveryConfig `yaml:"discovery-config"`
 }
 
+var ServerConfig *Config
+
 // ListenAndServer   监听并且提供服务，收到close chan后关闭
 func ListenAndServer(listener net.Listener, handler tcp.Handler, closeChan chan struct{}, register *cluster.Registry) {
 	go func() {
@@ -68,6 +70,7 @@ func ListenAndServer(listener net.Listener, handler tcp.Handler, closeChan chan 
 }
 
 func ListenAndServerWithSignal(cfg *Config, handler tcp.Handler) error {
+	ServerConfig = cfg
 	closeChan := make(chan struct{})
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)

@@ -126,5 +126,5 @@ func (r *Registry) UnRegistry() error {
 }
 
 func BuildRegPath(srvInfo *Server) string {
-	return fmt.Sprintf("%v/%v/%v/%v", serverPrefixKey, srvInfo.Addr, srvInfo.Version, srvInfo.Version)
+	return fmt.Sprintf("%v/%v/%v/%v", serverPrefixKey, srvInfo.Addr, srvInfo.Name, srvInfo.Version)
 }
