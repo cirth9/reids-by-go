@@ -231,6 +231,37 @@ func (db *DB) SPop(key string, count int) (redis.Reply, *Extra) {
 */
 
 func (db *DB) SInter(keys []string) (redis.Reply, *Extra) {
+	result := make([]string, 0)
+	setSlice := make([]*redisSet.Set, 0)
+	for _, key := range keys {
+		val, exists := db.data.Get(key)
+		if exists {
+			setSlice = append(setSlice, val.(*redisSet.Set))
+		}
+	}
+	if len(setSlice) == 0 {
+		return protocol.MakeNullMultiBulk(), nil
+	}
+	m := make(map[string]struct{})
+	for _, s := range setSlice[0].Members() {
+		m[s] = struct{}{}
+	}
+
+	for i := 1; i < len(setSlice); i++ {
+		for _, s := range setSlice[i].Members() {
+			if _, ok := m[s]; !ok {
+				delete(m, s)
+			}
+		}
+	}
+
+	for k, _ := range m {
+		result = append(result, k)
+	}
+	return protocol.MakeMultiBulkReply(trans.StringsToBytes(result)), nil
+}
+
+func (db *DB) SUnion(keys []string) (redis.Reply, *Extra) {
 	m := make(map[string]struct{})
 	setSlice := make([]*redisSet.Set, 0)
 	for _, key := range keys {
@@ -239,6 +270,10 @@ func (db *DB) SInter(keys []string) (redis.Reply, *Extra) {
 			setSlice = append(setSlice, val.(*redisSet.Set))
 		}
 	}
+	if len(setSlice) == 0 {
+		return protocol.MakeNullMultiBulk(), nil
+	}
+
 	for _, set := range setSlice {
 		for _, s := range set.Members() {
 			if _, ok := m[s]; !ok {
@@ -246,30 +281,56 @@ func (db *DB) SInter(keys []string) (redis.Reply, *Extra) {
 			}
 		}
 	}
-	return protocol.MakeMultiBulkReply(), nil
+
+	result := make([]string, 0)
+	for k, _ := range m {
+		result = append(result, k)
+	}
+	return protocol.MakeMultiBulkReply(trans.StringsToBytes(result)), nil
 }
 
-func (db *DB) SUnion(key []string) (redis.Reply, *Extra) {
+func (db *DB) SDiff(keys []string) (redis.Reply, *Extra) {
+	result := make([]string, 0)
+	setSlice := make([]*redisSet.Set, 0)
+	for _, key := range keys {
+		val, exists := db.data.Get(key)
+		if exists {
+			setSlice = append(setSlice, val.(*redisSet.Set))
+		}
+	}
+	if len(setSlice) == 0 {
+		return protocol.MakeNullMultiBulk(), nil
+	}
+	m := make(map[string]struct{})
+	for _, s := range setSlice[0].Members() {
+		m[s] = struct{}{}
+	}
+
+	for i := 1; i < len(setSlice); i++ {
+		for _, s := range setSlice[i].Members() {
+			if _, ok := m[s]; !ok {
+				result = append(result, s)
+			}
+		}
+	}
+
+	return protocol.MakeMultiBulkReply(trans.StringsToBytes(result)), nil
+}
+
+func (db *DB) SInterStore(keys []string) (redis.Reply, *Extra) {
+
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
 
-func (db *DB) SDiff(key []string) (redis.Reply, *Extra) {
+func (db *DB) SUnionStore(keys []string) (redis.Reply, *Extra) {
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
 
-func (db *DB) SInterStore(key []string) (redis.Reply, *Extra) {
+func (db *DB) SDiffStore(keys []string) (redis.Reply, *Extra) {
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
 
-func (db *DB) SUnionStore(key []string) (redis.Reply, *Extra) {
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func (db *DB) SDiffStore(key []string) (redis.Reply, *Extra) {
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func (db *DB) SMove(key []string) (redis.Reply, *Extra) {
+func (db *DB) SMove(keys []string) (redis.Reply, *Extra) {
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
 
@@ -283,24 +344,4 @@ func (db *DB) SRandMember(key string, count int) (redis.Reply, *Extra) {
 		return protocol.MakeMultiBulkReply(trans.StringsToBytes(set.RandMember(count))), nil
 	}
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func sAddRollBack(cmdLine CmdLine, db *DB) CmdLine {
-	rollback := make(CmdLine, 0)
-	return rollback
-}
-
-func sRemRollBack(cmdLine CmdLine, db *DB) CmdLine {
-	rollback := make(CmdLine, 0)
-	return rollback
-}
-
-func sPopRollBack(cmdLine CmdLine, db *DB) CmdLine {
-	rollback := make(CmdLine, 0)
-	return rollback
-}
-
-func sMoveRollBack(cmdLine CmdLine, db *DB) CmdLine {
-	rollback := make(CmdLine, 0)
-	return rollback
 }
