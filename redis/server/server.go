@@ -57,7 +57,6 @@ func (handler *Handler) Handle(ctx context.Context, conn net.Conn) {
 			log.Println("payload is nil")
 			continue
 		}
-
 		r, ok := payload.Data.(*protocol.MultiBulkStringReply)
 		if !ok {
 			log.Println(errors.New("require multi bulk protocol"))
@@ -68,7 +67,6 @@ func (handler *Handler) Handle(ctx context.Context, conn net.Conn) {
 			log.Print(string(arg))
 		}
 		result := handler.db.Exec(r.Args)
-		//log.Println("result >>> ", string(result.ToBytes()))
 		if result != nil {
 			_, _ = conn.Write(result.ToBytes())
 		} else {

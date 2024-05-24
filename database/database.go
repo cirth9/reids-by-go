@@ -77,6 +77,20 @@ func NewDatabase() *DB {
 	return db
 }
 
+func (db *DB) RoundDeleteExpiredKey(checkTime time.Duration) {
+	go func() {
+		for {
+			time.Sleep(checkTime)
+			db.ttlMap.ForEach(func(key string, val any) bool {
+				expireTime := val.(int64)
+				if expireTime < time.Now().UnixMilli() {
+					db.ttlMap.Delete(key)
+				}
+				return true
+			})
+		}
+	}()
+}
 func (db *DB) RWUnLock(writeKeys []string, readKeys []string) {
 	db.data.RWLocks(writeKeys, readKeys)
 }

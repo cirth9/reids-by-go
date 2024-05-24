@@ -6,6 +6,7 @@ import (
 	"reids-by-go/redis/protocol"
 	"reids-by-go/utils/trans"
 	"strings"
+	"time"
 )
 
 func setByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
@@ -66,6 +67,7 @@ func (db *DB) Set(cmdStrings []string) (redis.Reply, *Extra) {
 			},
 		}
 	}
+
 	if result >= 1 {
 		return protocol.MakeStatusReply("SET OK , NEW KEY"), extra
 	} else {
@@ -75,7 +77,14 @@ func (db *DB) Set(cmdStrings []string) (redis.Reply, *Extra) {
 
 func (db *DB) Get(cmdStrings []string) (redis.Reply, *Extra) {
 	val, exists := db.data.Get(cmdStrings[1])
-	//todo persist
+	if ttlVal, exist := db.ttlMap.Get(cmdStrings[1]); exist {
+		expireTime := ttlVal.(int64)
+		if expireTime < time.Now().UnixMilli() {
+			db.ttlMap.Delete(cmdStrings[1])
+			db.data.Delete(cmdStrings[1])
+			return protocol.MakeBulkReply([]byte("DO NOT EXISTED! KEY:" + cmdStrings[1])), nil
+		}
+	}
 
 	if exists {
 		return protocol.MakeBulkReply([]byte(val.(string))), nil
@@ -115,6 +124,16 @@ func (db *DB) MGet(cmdStrings []string) (redis.Reply, *Extra) {
 	var unExistKey strings.Builder
 	for i := 1; i < len(cmdStrings); i++ {
 		if val, exists := db.data.Get(cmdStrings[i]); exists {
+			if ttlVal, exist := db.ttlMap.Get(cmdStrings[i]); exist {
+				expireTime := ttlVal.(int64)
+				if expireTime < time.Now().UnixMilli() {
+					db.ttlMap.Delete(cmdStrings[i])
+					db.data.Delete(cmdStrings[i])
+					unExistKey.WriteString(cmdStrings[i])
+					unExistKey.WriteString(" ")
+					continue
+				}
+			}
 			result = append(result, val)
 		} else {
 			unExistKey.WriteString(cmdStrings[i])

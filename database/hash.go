@@ -6,6 +6,7 @@ import (
 	"reids-by-go/redis/protocol"
 	"reids-by-go/utils/trans"
 	"strconv"
+	"time"
 )
 
 /*
@@ -149,6 +150,14 @@ func (db *DB) HSet(key string, field string, val any) (redis.Reply, *Extra) {
 
 func (db *DB) HGet(key string, field string) (redis.Reply, *Extra) {
 	value, exists := db.data.Get(key)
+	if ttlVal, exist := db.ttlMap.Get(key); exist {
+		expireTime := ttlVal.(int64)
+		if expireTime < time.Now().UnixMilli() {
+			db.ttlMap.Delete(key)
+			db.data.Delete(key)
+			return protocol.MakeBulkReply([]byte("DO NOT EXISTED! KEY:" + key)), nil
+		}
+	}
 	if exists {
 		hash, ok := value.(*redis_hash.Hash)
 		if !ok {
@@ -282,6 +291,14 @@ func (db *DB) HMSet(key string, s map[string]any) (redis.Reply, *Extra) {
 
 func (db *DB) HMGet(key string, field []string) (redis.Reply, *Extra) {
 	value, exists := db.data.Get(key)
+	if ttlVal, exist := db.ttlMap.Get(key); exist {
+		expireTime := ttlVal.(int64)
+		if expireTime < time.Now().UnixMilli() {
+			db.ttlMap.Delete(key)
+			db.data.Delete(key)
+			return protocol.MakeBulkReply([]byte("DO NOT EXISTED! KEY:" + key)), nil
+		}
+	}
 	if exists {
 		hash, ok := value.(*redis_hash.Hash)
 		if !ok {

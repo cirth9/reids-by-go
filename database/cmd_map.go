@@ -294,11 +294,11 @@ func initCmdUnDoMap() map[string]GetRollBackCmd {
 	cmd[lRem] = lRemRollBack
 	cmd[lTrim] = lTrimRollBack
 
-	//todo set
-	cmd[sAdd] = sAddRollBack
-	cmd[sRem] = sRemRollBack
-	cmd[sPop] = sPopRollBack
-	cmd[sMove] = sMoveRollBack
+	////todo set
+	//cmd[sAdd] = sAddRollBack
+	//cmd[sRem] = sRemRollBack
+	//cmd[sPop] = sPopRollBack
+	//cmd[sMove] = sMoveRollBack
 
 	//todo hash
 	cmd[hSet] = hSetRollBack
