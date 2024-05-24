@@ -62,10 +62,10 @@ func (handler *Handler) Handle(ctx context.Context, conn net.Conn) {
 			log.Println(errors.New("require multi bulk protocol"))
 			continue
 		}
-		log.Println("cmd lines: ")
-		for _, arg := range r.Args {
-			log.Print(string(arg))
-		}
+		//log.Println("cmd lines: ")
+		//for _, arg := range r.Args {
+		//	log.Print(string(arg))
+		//}
 		result := handler.db.Exec(r.Args)
 		if result != nil {
 			_, _ = conn.Write(result.ToBytes())

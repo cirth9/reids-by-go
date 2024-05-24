@@ -82,6 +82,7 @@ func (db *DB) Get(cmdStrings []string) (redis.Reply, *Extra) {
 		if expireTime < time.Now().UnixMilli() {
 			db.ttlMap.Delete(cmdStrings[1])
 			db.data.Delete(cmdStrings[1])
+			log.Println("delete expire key:", cmdStrings[1])
 			return protocol.MakeBulkReply([]byte("DO NOT EXISTED! KEY:" + cmdStrings[1])), nil
 		}
 	}

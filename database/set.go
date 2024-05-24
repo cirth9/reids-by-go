@@ -27,80 +27,56 @@ import (
 */
 
 func sAddByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SAdd(cmdStrings[1])
+	return db.SAdd(cmdStrings[1], cmdStrings[2:])
 }
 
 func sRemByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SRem(cmdStrings[1])
+	return db.SRem(cmdStrings[1], cmdStrings[2:])
 }
 
 func sisMemberByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SisMember(cmdStrings[1])
+	return db.SisMember(cmdStrings[1], cmdStrings[2])
 }
 
 func sPopByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
 	if len(cmdStrings) < 2 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SPop(cmdStrings[1])
+	count, err := strconv.Atoi(cmdStrings[2])
+	if err != nil {
+		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+	}
+	return db.SPop(cmdStrings[1], count)
 }
 
 func sInterByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SInter(cmdStrings[1])
+	return db.SInter(cmdStrings[1:])
 }
 
 func sUnionByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SUnion(cmdStrings[1])
+	return db.SUnion(cmdStrings[1:])
 }
 
 func sDiffByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
+	if len(cmdStrings) < 3 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SDiff(cmdStrings[1])
-}
-
-func sInterStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
-		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
-	}
-	return db.SInterStore(cmdStrings[1])
-}
-
-func sUnionStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
-		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
-	}
-	return db.SUnionStore(cmdStrings[1])
-}
-
-func sDiffStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
-		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
-	}
-	return db.SDiffStore(cmdStrings[1])
-}
-
-func sMoveByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
-	if len(cmdStrings) < 2 {
-		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
-	}
-	return db.SMove(cmdStrings[1])
+	return db.SDiff(cmdStrings[1:])
 }
 
 func sCardByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
@@ -121,8 +97,40 @@ func sRandMemberByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
 	if len(cmdStrings) < 2 {
 		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
 	}
-	return db.SRandMember(cmdStrings[1])
+	count, err := strconv.Atoi(cmdStrings[2])
+	if err != nil {
+		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+	}
+	return db.SRandMember(cmdStrings[1], count)
 }
+
+//func sInterStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
+//	if len(cmdStrings) < 2 {
+//		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+//	}
+//	return db.SInterStore(cmdStrings[1:])
+//}
+//
+//func sUnionStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
+//	if len(cmdStrings) < 2 {
+//		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+//	}
+//	return db.SUnionStore(cmdStrings[1:])
+//}
+//
+//func sDiffStoreByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
+//	if len(cmdStrings) < 2 {
+//		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+//	}
+//	return db.SDiffStore(cmdStrings[1:])
+//}
+//
+//func sMoveByDb(cmdStrings []string, db *DB) (redis.Reply, *Extra) {
+//	if len(cmdStrings) < 2 {
+//		return protocol.MakeErrReply("COMMAND'S PARAMS NUMBER ERROR"), nil
+//	}
+//	return db.SMove(cmdStrings[1:])
+//}
 
 /*
 	SADD key member [member ...]: 向集合中添加一个或多个成员。
@@ -317,23 +325,6 @@ func (db *DB) SDiff(keys []string) (redis.Reply, *Extra) {
 	return protocol.MakeMultiBulkReply(trans.StringsToBytes(result)), nil
 }
 
-func (db *DB) SInterStore(keys []string) (redis.Reply, *Extra) {
-
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func (db *DB) SUnionStore(keys []string) (redis.Reply, *Extra) {
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func (db *DB) SDiffStore(keys []string) (redis.Reply, *Extra) {
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
-func (db *DB) SMove(keys []string) (redis.Reply, *Extra) {
-	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
-}
-
 func (db *DB) SRandMember(key string, count int) (redis.Reply, *Extra) {
 	val, exists := db.data.Get(key)
 	if exists {
@@ -345,3 +336,20 @@ func (db *DB) SRandMember(key string, count int) (redis.Reply, *Extra) {
 	}
 	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
 }
+
+//func (db *DB) SInterStore(keys []string) (redis.Reply, *Extra) {
+//
+//	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
+//}
+//
+//func (db *DB) SUnionStore(keys []string) (redis.Reply, *Extra) {
+//	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
+//}
+//
+//func (db *DB) SDiffStore(keys []string) (redis.Reply, *Extra) {
+//	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
+//}
+
+//func (db *DB) SMove(keys []string) (redis.Reply, *Extra) {
+//	return protocol.MakeStatusReply("FAILED! THE KEY DO NOT EXISTED!"), nil
+//}

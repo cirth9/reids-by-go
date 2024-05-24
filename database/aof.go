@@ -23,7 +23,6 @@ func (db *DB) handleAof() {
 	for p := range db.aofChan {
 		db.pausingAof.RLock()
 		data := protocol.MakeMultiBulkReply(p.Args).ToBytes()
-		//log.Println(string(data))
 		_, err := db.aofFile.Write(data)
 		if err != nil {
 			log.Println("aof file write error:", err.Error())
@@ -76,7 +75,7 @@ func (db *DB) loadAof(maxBytes int64) {
 		}
 		cmd := strings.ToLower(string(r.Args[0]))
 		c, ok := cmdMap[cmd]
-		//log.Println("load Aof cmd", cmd)
+		log.Println("load Aof cmd", cmd)
 		if ok {
 			cmdStrings := trans.BytesToStrings(r.Args)
 			c.handler(cmdStrings, db)
@@ -87,7 +86,7 @@ func (db *DB) loadAof(maxBytes int64) {
 func (db *DB) AofReWrite() {
 	for {
 		time.Sleep(time.Second * time.Duration(config.PersistConfig.AofRewriteTime))
-		//log.Println("AOF Rewrite Start")
+		log.Println("AOF Rewrite Start")
 		rewrite, err := db.StartRewrite()
 		if err != nil {
 			log.Panic("aof rewrite error")
@@ -126,13 +125,13 @@ func (db *DB) StartRewrite() (*RewriteCtx, error) {
 
 func (db *DB) DoRewrite(ctx *RewriteCtx) error {
 	tmpFile := ctx.tmpFile
-	db.loadAof(ctx.fileSize)
 	db.ForEach(func(key string, data any, expiration *time.Time) bool {
 		cmd := cmd_utils.DataToCmd(key, data)
 		if cmd != nil {
 			tmpFile.Write(cmd.ToBytes())
 		}
 		if expiration != nil {
+			log.Println(expiration)
 			expireCmd := cmd_utils.MakeExpireCmd(key, *expiration)
 			if cmd != nil {
 				tmpFile.Write(expireCmd.ToBytes())
@@ -177,5 +176,6 @@ func (db *DB) FinishedRewrite(ctx *RewriteCtx) {
 		panic(err)
 	}
 	db.aofFile = aofFile
+	log.Println("aof rewrite finished")
 	return
 }

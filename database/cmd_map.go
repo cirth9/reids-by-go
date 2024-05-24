@@ -162,11 +162,11 @@ func initCmdMap() map[string]*command {
 	cmd[sInter] = makeCommand(sInter, sInterByDb)
 	cmd[sUnion] = makeCommand(sUnion, sUnionByDb)
 	cmd[sDiff] = makeCommand(sDiff, sDiffByDb)
-	cmd[sInterStore] = makeCommand(sInterStore, sInterStoreByDb)
-	cmd[sUnionStore] = makeCommand(sUnionStore, sUnionStoreByDb)
-	cmd[sDiffStore] = makeCommand(sDiffStore, sDiffStoreByDb)
-	cmd[sMove] = makeCommand(sMove, sMoveByDb)
 	cmd[sRandMember] = makeCommand(sRandMember, sRandMemberByDb)
+	//cmd[sInterStore] = makeCommand(sInterStore, sInterStoreByDb)
+	//cmd[sUnionStore] = makeCommand(sUnionStore, sUnionStoreByDb)
+	//cmd[sDiffStore] = makeCommand(sDiffStore, sDiffStoreByDb)
+	//cmd[sMove] = makeCommand(sMove, sMoveByDb)
 
 	//todo hash
 	cmd[hSet] = makeCommand(hSet, hSetByDb)

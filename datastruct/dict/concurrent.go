@@ -158,7 +158,6 @@ func (dict *ConcurrentDict) Put(key string, val any) (result int) {
 	} else {
 		//do not exist
 		shard.m[key] = val
-		//log.Println("put >>> ", key, shard.m[key])
 		dict.addCount()
 		return 1
 	}
@@ -242,11 +241,31 @@ func (dict *ConcurrentDict) ForEach(consumer Consumer) {
 	if dict == nil {
 		panic("dict is nil")
 	}
-
 	for _, s := range dict.table {
 		s.mutex.RLock()
 		f := func() bool {
 			defer s.mutex.RUnlock()
+			for key, value := range s.m {
+				continues := consumer(key, value)
+				if !continues {
+					return false
+				}
+			}
+			return true
+		}
+		if !f() {
+			break
+		}
+	}
+}
+
+// ForEachWithoutLock 主要是为了解决锁冲突问题
+func (dict *ConcurrentDict) ForEachWithoutLock(consumer Consumer) {
+	if dict == nil {
+		panic("dict is nil")
+	}
+	for _, s := range dict.table {
+		f := func() bool {
 			for key, value := range s.m {
 				continues := consumer(key, value)
 				if !continues {

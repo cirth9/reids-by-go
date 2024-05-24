@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	dataDictSize = 1 << 16
-	ttlDictSize  = 1 << 10
+	dataDictSize          = 1 << 16
+	ttlDictSize           = 1 << 10
+	defaultRoundCheckTime = time.Second * 3
 )
 
 type DB struct {
@@ -74,17 +75,21 @@ func NewDatabase() *DB {
 	db.loadAof(1024)
 	go db.handleAof()
 	go db.AofReWrite()
+	go db.roundDeleteExpiredKey(defaultRoundCheckTime)
 	return db
 }
 
-func (db *DB) RoundDeleteExpiredKey(checkTime time.Duration) {
+func (db *DB) roundDeleteExpiredKey(checkTime time.Duration) {
 	go func() {
 		for {
 			time.Sleep(checkTime)
-			db.ttlMap.ForEach(func(key string, val any) bool {
+			log.Println("round time check expire key")
+			db.ttlMap.ForEachWithoutLock(func(key string, val any) bool {
 				expireTime := val.(int64)
 				if expireTime < time.Now().UnixMilli() {
+					db.data.Delete(key)
 					db.ttlMap.Delete(key)
+					log.Println("delete expire key:", key)
 				}
 				return true
 			})
@@ -116,7 +121,6 @@ func (db *DB) Exec(cmd CmdLine) redis.Reply {
 			}
 		}()
 	}
-	//log.Println(string(reply.ToBytes()))
 	return reply
 }
 
