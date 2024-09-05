@@ -6,7 +6,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
 	"net"
-	consist "reids-by-go/datastruct/consisten"
+	consist "reids-by-go/datastruct/consistent"
 	"time"
 )
 
